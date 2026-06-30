@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photo Booth · Copacabana</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;900&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --sand:#F3E3C3;
+    --teal:#0E4F4A;
+    --coral:#FF6B4A;
+    --ink:#0A2421;
+    --sun:#FFC94D;
+    --wave-pattern: repeating-linear-gradient(135deg, #0E4F4A 0px, #0E4F4A 8px, #F3E3C3 8px, #F3E3C3 16px);
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background: var(--ink);
+    color: var(--sand);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 24px 16px 60px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom: 28px;
+    max-width: 640px;
+  }
+
+  .eyebrow{
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--coral);
+    margin-bottom: 10px;
+  }
+
+  h1{
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: clamp(32px, 6vw, 56px);
+    line-height: 1.0;
+    color: var(--sand);
+  }
+
+  h1 em{
+    font-style: italic;
+    color: var(--sun);
+  }
+
+  .sub{
+    margin-top: 14px;
+    font-size: 13px;
+    color: #C9D8D4;
+    line-height: 1.6;
+  }
+
+  .stage{
+    position: relative;
+    width: min(640px, 92vw);
+    aspect-ratio: 4/3;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #06201D;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,201,77,0.2);
+  }
+
+  canvas{
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    object-fit: cover;
+  }
+
+  video{ display:none; }
+
+  .status{
+    position:absolute;
+    top:14px; left:14px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    background: rgba(10,36,33,0.7);
+    backdrop-filter: blur(6px);
+    padding: 6px 10px;
+    border-radius: 100px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .dot{
+    width:6px; height:6px;
+    border-radius:50%;
+    background: #FF6B4A;
+  }
+  .dot.ready{ background: #6CCB95; }
+
+  .controls{
+    width: min(640px, 92vw);
+    display:flex;
+    gap:12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content:center;
+  }
+
+  button{
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 14px 26px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+
+  button:active{ transform: scale(0.96); }
+
+  .primary{
+    background: var(--coral);
+    color: var(--ink);
+  }
+  .primary:disabled{
+    background: #5a4438;
+    color: #998a7d;
+    cursor: not-allowed;
+  }
+
+  .secondary{
+    background: transparent;
+    color: var(--sand);
+    border: 1px solid rgba(243,227,195,0.3);
+  }
+
+  .countdown{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Fraunces', serif;
+    font-weight:900;
+    font-size: 140px;
+    color: var(--sun);
+    text-shadow: 0 0 40px rgba(255,201,77,0.6);
+    pointer-events:none;
+    opacity:0;
+    transition: opacity 0.2s ease;
+  }
+  .countdown.show{ opacity:1; }
+
+  .flash{
+    position:absolute;
+    inset:0;
+    background:white;
+    opacity:0;
+    pointer-events:none;
+  }
+  .flash.go{
+    animation: flashpop 0.4s ease-out;
+  }
+  @keyframes flashpop{
+    0%{opacity:0.9;}
+    100%{opacity:0;}
+  }
+
+  .result{
+    width: min(640px, 92vw);
+    margin-top: 24px;
+    display:none;
+  }
+  .result.show{ display:block; }
+
+  .result img{
+    width:100%;
+    border-radius: 18px;
+    border: 1px solid rgba(255,201,77,0.2);
+  }
+
+  footer{
+    margin-top: 40px;
+    font-size: 11px;
+    color: #6e8d86;
+    text-align:center;
+    max-width: 480px;
+    line-height: 1.7;
+  }
+
+  footer strong{ color: #C9D8D4; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Sala Copacabana</div>
+  <h1>Tu foto, <em>al instante</em>,<br>desde la oficina hasta la playa</h1>
+  <p class="sub">La cámara recorta a la persona en tu navegador y la pega sobre el fondo de Copacabana. No se llama a ningún modelo de IA por foto — funciona offline después de cargar, y no consume créditos.</p>
+</header>
+
+<div class="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="output"></canvas>
+  <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Cargando modelo…</span></div>
+  <div class="countdown" id="countdown"></div>
+  <div class="flash" id="flash"></div>
+</div>
+
+<div class="controls">
+  <button class="primary" id="shootBtn" disabled>Tomar foto</button>
+  <button class="secondary" id="retryBtn" style="display:none;">Repetir</button>
+  <button class="secondary" id="downloadBtn" style="display:none;">Descargar</button>
+</div>
+
+<div class="result" id="resultWrap">
+  <img id="resultImg" alt="Resultado">
+</div>
+
+<footer>
+  <strong>Cómo cambiar el fondo:</strong> reemplaza la imagen <code>bg.jpg</code> (o edita la URL en el código) por una foto de Copacabana con derechos de uso propios. El resto del sistema sigue funcionando igual, sin costo por foto.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('output');
+const ctx = canvas.getContext('2d');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const shootBtn = document.getElementById('shootBtn');
+const retryBtn = document.getElementById('retryBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const countdownEl = document.getElementById('countdown');
+const flashEl = document.getElementById('flash');
+const resultWrap = document.getElementById('resultWrap');
+const resultImg = document.getElementById('resultImg');
+
+let bgImg = new Image();
+let bgReady = false;
+let segmentationReady = false;
+let lastSegMask = null;
+let streaming = false;
+let frozen = false;
+
+// Fondo ilustrado de Copacabana (placeholder vectorial, sin derechos de autor).
+// Reemplázalo por tu propia foto con licencia: bgImg.src = "bg.jpg";
+function buildIllustratedBackground(){
+  const c = document.createElement('canvas');
+  c.width = 1280; c.height = 960;
+  const bctx = c.getContext('2d');
+
+  // cielo atardecer
+  const sky = bctx.createLinearGradient(0,0,0,560);
+  sky.addColorStop(0, '#FF8C5A');
+  sky.addColorStop(0.5, '#FFC94D');
+  sky.addColorStop(1, '#F3E3C3');
+  bctx.fillStyle = sky;
+  bctx.fillRect(0,0,1280,560);
+
+  // sol
+  bctx.beginPath();
+  bctx.arc(950, 240, 90, 0, Math.PI*2);
+  bctx.fillStyle = '#FFE9B0';
+  bctx.fill();
+
+  // morros (cerros) estilo Pão de Açúcar
+  bctx.fillStyle = '#1C5C53';
+  bctx.beginPath();
+  bctx.moveTo(700,560);
+  bctx.quadraticCurveTo(820,260,920,300);
+  bctx.quadraticCurveTo(1000,330,1040,560);
+  bctx.closePath();
+  bctx.fill();
+
+  bctx.fillStyle = '#13403A';
+  bctx.beginPath();
+  bctx.moveTo(960,560);
+  bctx.quadraticCurveTo(1080,360,1160,400);
+  bctx.quadraticCurveTo(1220,420,1280,560);
+  bctx.closePath();
+  bctx.fill();
+
+  // edificios de Copacabana
+  bctx.fillStyle = '#E9DAC0';
+  for(let i=0;i<22;i++){
+    const x = i*60;
+    const h = 60 + Math.sin(i*1.3)*20 + 40;
+    bctx.fillStyle = i%2===0 ? '#EFE0C6' : '#E2D2B6';
+    bctx.fillRect(x, 560-h, 50, h);
+  }
+
+  // mar
+  const sea = bctx.createLinearGradient(0,560,0,820);
+  sea.addColorStop(0, '#0E4F4A');
+  sea.addColorStop(1, '#0A3733');
+  bctx.fillStyle = sea;
+  bctx.fillRect(0,560,1280,260);
+
+  // olas
+  bctx.strokeStyle = 'rgba(243,227,195,0.25)';
+  bctx.lineWidth = 3;
+  for(let y=600; y<820; y+=30){
+    bctx.beginPath();
+    for(let x=0;x<=1280;x+=20){
+      const yy = y + Math.sin((x+y)*0.03)*6;
+      x===0 ? bctx.moveTo(x,yy) : bctx.lineTo(x,yy);
+    }
+    bctx.stroke();
+  }
+
+  // arena ondulada (patrón icónico de Copacabana)
+  bctx.fillStyle = '#F3E3C3';
+  bctx.fillRect(0,800,1280,160);
+  bctx.strokeStyle = '#0E4F4A';
+  bctx.lineWidth = 14;
+  for(let y=810; y<960; y+=28){
+    bctx.beginPath();
+    for(let x=-20;x<=1300;x+=40){
+      const yy = y + Math.sin(x*0.02)*10;
+      x===-20 ? bctx.moveTo(x,yy) : bctx.lineTo(x,yy);
+    }
+    bctx.stroke();
+  }
+
+  bgImg.src = c.toDataURL('image/jpeg', 0.92);
+}
+
+bgImg.onload = () => { bgReady = true; updateStatus(); };
+buildIllustratedBackground();
+
+function updateStatus(){
+  if(segmentationReady && bgReady){
+    statusDot.classList.add('ready');
+    statusText.textContent = 'Listo';
+    shootBtn.disabled = false;
+  }
+}
+
+// --- MediaPipe Selfie Segmentation (corre 100% local en el navegador) ---
+const selfieSegmentation = new SelfieSegmentation({
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+});
+selfieSegmentation.setOptions({ modelSelection: 1 });
+selfieSegmentation.onResults(onResults);
+
+function onResults(results){
+  lastSegMask = results;
+  if(!segmentationReady){
+    segmentationReady = true;
+    updateStatus();
+  }
+  if(!frozen) draw(results);
+}
+
+function draw(results){
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  ctx.save();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // fondo Copacabana cubriendo el canvas (cover)
+  drawCover(bgImg, canvas.width, canvas.height);
+
+  // recortar solo a la persona usando la máscara de segmentación
+  ctx.save();
+  ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawCover(img, w, h){
+  const ir = img.width / img.height;
+  const cr = w / h;
+  let sw, sh, sx, sy;
+  if(ir > cr){
+    sh = img.height;
+    sw = sh * cr;
+    sx = (img.width - sw)/2;
+    sy = 0;
+  } else {
+    sw = img.width;
+    sh = sw / cr;
+    sx = 0;
+    sy = (img.height - sh)/2;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+}
+
+async function startCamera(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 960 } });
+    video.srcObject = stream;
+    await video.play();
+    streaming = true;
+    renderLoop();
+  }catch(e){
+    statusText.textContent = 'No se pudo acceder a la cámara';
+  }
+}
+
+async function renderLoop(){
+  if(streaming && !frozen){
+    await selfieSegmentation.send({ image: video });
+  }
+  requestAnimationFrame(renderLoop);
+}
+
+startCamera();
+
+// --- Captura con cuenta regresiva ---
+shootBtn.addEventListener('click', () => {
+  let n = 3;
+  shootBtn.disabled = true;
+  countdownEl.classList.add('show');
+  countdownEl.textContent = n;
+  const interval = setInterval(() => {
+    n--;
+    if(n > 0){
+      countdownEl.textContent = n;
+    } else {
+      clearInterval(interval);
+      countdownEl.classList.remove('show');
+      capture();
+    }
+  }, 800);
+});
+
+function capture(){
+  frozen = true;
+  flashEl.classList.add('go');
+  setTimeout(() => flashEl.classList.remove('go'), 400);
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+  resultImg.src = dataUrl;
+  resultWrap.classList.add('show');
+  retryBtn.style.display = 'inline-block';
+  downloadBtn.style.display = 'inline-block';
+}
+
+retryBtn.addEventListener('click', () => {
+  frozen = false;
+  resultWrap.classList.remove('show');
+  retryBtn.style.display = 'none';
+  downloadBtn.style.display = 'none';
+  shootBtn.disabled = false;
+});
+
+downloadBtn.addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = resultImg.src;
+  a.download = `copacabana-${Date.now()}.jpg`;
+  a.click();
+});
+</script>
+</body>
+</html>
